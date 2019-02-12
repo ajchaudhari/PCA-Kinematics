@@ -36,7 +36,9 @@ Input Data
 
 <p>
     <img src="Documentation/Input Example Gif.gif" alt width="50%">
-    <em> Example segmented MR image of the wrist. The module takes a folder of these segmented images (with the same unique label for each bone) as an input. </em>
+    <br>
+    <br>    
+    <b> Example segmented MR image of the wrist. The module takes a folder of these segmented images (with the same unique label for each bone) as an input. </b>
 </p>
 
 
@@ -44,24 +46,30 @@ Module 1: Create Training Data
 ------- 
 
 <p>
-    <img src="Documentation/Module 1 Example.gif" alt width="70%">
-    <em> Using a folder of segmented images (which have the same unique label for each bone) as an input, the model creates the training data using the procedure described in the paper. </em>
+    <img src="Documentation/Module 1 Example.gif" alt width="80%">
+    <br>
+    <br>
+    <b> Using a folder of segmented images (which have the same unique label for each bone) as an input, the model creates the training data using the procedure described in the paper. </b>
 </p>
 
 Module 2: Create Bone Displacement Model
 ------- 
 
 <p>
-    <img src="Documentation/Module 2 Example.gif" alt width="70%">
-    <em> The second module takes the output of module 1 (the training data) and creates the bone displacement model using the procedure described in the paper. </em>
+    <img src="Documentation/Module 2 Example.gif" alt width="80%">
+    <br>
+    <br>
+    <b> The second module takes the output of module 1 (the training data) and creates the bone displacement model using the procedure described in the paper. </b>
 </p>
 
 Eigenspace Interpolation
 ------- 
 
 <p>
-    <img src="Documentation/Eigenspace Interpolation.gif" alt width="70%">
-    <em> Module 2 also has the ability to fit the created bone displacement model to a set of surfaces (which must be in correspondence to the model) and then can interpolate between them in eigenspace. This may allow for more realistic displacement patterns for individual joint modeling. The best fitted model coeffients are also saved to a text file if further analysis is needed. </em>
+    <img src="Documentation/Eigenspace Interpolation.gif" alt width="80%">
+    <br>
+    <br>
+    <b> Module 2 also has the ability to fit the created bone displacement model to a set of surfaces (which must be in correspondence to the model) and then can interpolate between them in eigenspace. This may allow for more realistic displacement patterns for individual joint modeling. The best fitted model coeffients are also saved to a text file if further analysis is needed. </b>
 </p>
 
 Publication
