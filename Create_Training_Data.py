@@ -108,7 +108,7 @@ class Create_Training_DataWidget:
         self.ICPCollapsibleButton = ctk.ctkCollapsibleButton()
         self.ICPCollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
         self.ICPCollapsibleButton.text = "Iterative Closest Point Registration"
-        self.ICPCollapsibleButton.collapsed = False # Default is to show     
+        self.ICPCollapsibleButton.collapsed = True # Default is to not show     
         frameLayout.addWidget(self.ICPCollapsibleButton) 
 
         # Layout within the ICP collapsible button
@@ -213,7 +213,7 @@ class Create_Training_DataWidget:
         self.SmoothCollapsibleButton = ctk.ctkCollapsibleButton()
         self.SmoothCollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
         self.SmoothCollapsibleButton.text = "Smoothing Options"
-        self.SmoothCollapsibleButton.collapsed = False # Default is to show  
+        self.SmoothCollapsibleButton.collapsed = True # Default is to not show  
         frameLayout.addWidget(self.SmoothCollapsibleButton) 
 
         # Layout within the smoothing options collapsible button
@@ -236,6 +236,23 @@ class Create_Training_DataWidget:
         self.SmoothFormLayout.addRow(self.label, self.Bone_Smoothing_Its_Slider)
         self.smoothing_iterations = self.Bone_Smoothing_Its_Slider.value # Set default value
         
+        # Slider for choosing the smoothing relaxation factor     
+        self.label = qt.QLabel()
+        self.label.setFont(qt.QFont(self.font_type, self.font_size))
+        self.label.setText("Relaxation Factor: ")
+        self.label.setToolTip("Select the relaxation factor for smoothing the bone surfaces. Higher relaxation will smooth the surface more while a lower factor will have less smoothing.")
+        self.Bone_Smoothing_Relaxation_Slider = ctk.ctkSliderWidget()
+        self.Bone_Smoothing_Relaxation_Slider.setToolTip("Select the relaxation factor for smoothing the bone surfaces. Higher relaxation will smooth the surface more while a lower factor will have less smoothing.")
+        self.Bone_Smoothing_Relaxation_Slider.minimum = 0
+        self.Bone_Smoothing_Relaxation_Slider.maximum = 1
+        self.Bone_Smoothing_Relaxation_Slider.value = 0.4 
+        self.Bone_Smoothing_Relaxation_Slider.singleStep = 0.1
+        self.Bone_Smoothing_Relaxation_Slider.tickInterval = 0.1
+        self.Bone_Smoothing_Relaxation_Slider.decimals = 2
+        self.Bone_Smoothing_Relaxation_Slider.connect('valueChanged(double)', self.onBone_Smoothing_Relaxation_SliderChange)
+        self.SmoothFormLayout.addRow(self.label, self.Bone_Smoothing_Relaxation_Slider)
+        self.relaxation_factor = self.Bone_Smoothing_Relaxation_Slider.value # Set default value
+
         # Slider for choosing the percentage of bone surface decimation    
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont(self.font_type, self.font_size))
@@ -244,24 +261,24 @@ class Create_Training_DataWidget:
         self.Bone_Decimate_Slider = ctk.ctkSliderWidget()
         self.Bone_Decimate_Slider.setToolTip("Select the ratio of verticies to remove from the bone surface. This results in a smoother surface and less points for faster computation. Too much could cause surface artifacts. For example, 0.1 removes 10 percent while 0.9 removes 90 percent of points.")     
         self.Bone_Decimate_Slider.minimum = 0
-        self.Bone_Decimate_Slider.maximum = 1
+        self.Bone_Decimate_Slider.maximum = 0.9
         self.Bone_Decimate_Slider.value = 0.2
         self.Bone_Decimate_Slider.singleStep = 0.05
         self.Bone_Decimate_Slider.tickInterval = 0.05
         self.Bone_Decimate_Slider.decimals = 2
         self.Bone_Decimate_Slider.connect('valueChanged(double)', self.onBone_Decimate_SliderChange)
         self.SmoothFormLayout.addRow(self.label, self.Bone_Decimate_Slider)        
-        self.decimate_surface = self.Bone_Decimate_Slider.value # Set default value
-        
+        self.decimate_surface = self.Bone_Decimate_Slider.value # Set default value    
+
         # Debugging Collapse button
-        self.DebugCollapsibleButton = ctk.ctkCollapsibleButton()
-        self.DebugCollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
-        self.DebugCollapsibleButton.text = "Debugging"
-        self.DebugCollapsibleButton.collapsed = True # Default is to not show   
-        frameLayout.addWidget(self.DebugCollapsibleButton) 
+        self.RenderingCollapsibleButton = ctk.ctkCollapsibleButton()
+        self.RenderingCollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
+        self.RenderingCollapsibleButton.text = "Visualization"
+        self.RenderingCollapsibleButton.collapsed = True # Default is to not show   
+        frameLayout.addWidget(self.RenderingCollapsibleButton) 
 
         # Layout within the debug collapsible button
-        self.CollapseFormLayout = qt.QFormLayout(self.DebugCollapsibleButton)
+        self.CollapseFormLayout = qt.QFormLayout(self.RenderingCollapsibleButton)
 
         # Show the registered shapes toggle button
         self.show_registered_shapes = qt.QCheckBox("Show Registered Shapes")
@@ -283,6 +300,19 @@ class Create_Training_DataWidget:
         self.debug_show_images.toolTip = "When checked, show the loaded images. Useful for debugging if the images are flipped or loading incorrectly."
         self.debug_show_images.checked = False
         self.CollapseFormLayout.addWidget(self.debug_show_images) 
+
+
+        # Debugging Collapse button
+        self.DebugCollapsibleButton = ctk.ctkCollapsibleButton()
+        self.DebugCollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
+        self.DebugCollapsibleButton.text = "Debugging"
+        self.DebugCollapsibleButton.collapsed = True # Default is to not show   
+        frameLayout.addWidget(self.DebugCollapsibleButton) 
+
+        # Layout within the debug collapsible button
+        self.CollapseFormLayout = qt.QFormLayout(self.DebugCollapsibleButton)
+
+
 
         # Show the flip image vertically toggle button
         self.flip_image_vertically = qt.QCheckBox("Flip Vertically")
@@ -367,6 +397,10 @@ class Create_Training_DataWidget:
     def onBone_Smoothing_Its_SliderChange(self, newValue):
         # Number of iterations for bone surface smoothing
         self.smoothing_iterations = newValue
+
+    def onBone_Smoothing_Relaxation_SliderChange(self, newValue):
+        # Relaxation factor for bone surface smoothing
+        self.relaxation_factor = newValue
 
     def onRef_Bone_SliderChange(self, newValue):
         # The label of the segmented image to consider as a reference bone
@@ -610,7 +644,7 @@ class Create_Training_DataWidget:
                 self.progressBar.setValue(50 + float(iter_bar)/(len(self.bone_labels)*len(self.file_list))*100/5) # Use 20% of the bar for this
                 slicer.app.processEvents()
                 iter_bar = iter_bar + 1
-                slicer.util.showStatusMessage("Registering Mean Shapes...")
+                slicer.util.showStatusMessage("Registering Reference Shapes...")
  
                 transformedSource = self.IterativeClosestPoint(target=polydata_list[label][i], source=reference_shapes[label][0]) 
 
@@ -698,8 +732,7 @@ class Create_Training_DataWidget:
             if self.Save_Bones_Separately.checked == True:        
 
                 for label in self.bone_labels:                   
-                    path = os.path.join(self.output_directory_path, os.path.join('Bone_' + str(label), 'Position_' + str(i) + '_bone_' + str(label) + '.ply'))
-        
+                    path = os.path.join(self.output_directory_path, 'Position_' + str(i) + '_bone_' + str(label) + '.ply')    
                     plyWriter.SetFileName(path)
                     plyWriter.SetInputData(polydata_list[label][i])
                     plyWriter.Write()
@@ -731,7 +764,7 @@ class Create_Training_DataWidget:
         treshold_filter.SetInValue(255) # Replace the bone label = label to 255 (threshold again using contour filter)
         treshold_filter.Update()
 
-        boneExtractor = vtk.vtkContourFilter()
+        boneExtractor = vtk.vtkDiscreteMarchingCubes()
 
         try:
             boneExtractor.SetInputData(treshold_filter.GetOutput())
@@ -742,7 +775,7 @@ class Create_Training_DataWidget:
         boneExtractor.SetValue(0,255) 
         boneExtractor.Update()
 
-        output_polydata = self.Smooth_Surface(boneExtractor.GetOutput(), decimate=self.decimate_surface, surfaceNormals=False)
+        output_polydata = self.Smooth_Surface(boneExtractor.GetOutput())
 
 
         return output_polydata
@@ -813,7 +846,7 @@ class Create_Training_DataWidget:
             # If there in NOT a reference surface, return the registered source
             return transformedSource
 
-    def Smooth_Surface(self, surface, decimate=0.8, surfaceNormals=True):
+    def Smooth_Surface(self, surface):
         # Take a vtk surface and run it through the smoothing pipeline
 
         boneNormals = vtk.vtkPolyDataNormals()
@@ -830,12 +863,12 @@ class Create_Training_DataWidget:
         cleanPolyData.Update()
         surface = cleanPolyData.GetOutputPort()
 
-        if decimate != 1:
+        if self.decimate_surface  > 0 and self.decimate_surface < 1:
             # We want to preserve topology (not let any cracks form). This may
             # limit the total reduction possible, which we have specified at 80%.
             deci = vtk.vtkDecimatePro()
             deci.SetInputConnection(surface)
-            deci.SetTargetReduction(decimate)
+            deci.SetTargetReduction(self.decimate_surface)
             deci.PreserveTopologyOn()
 
             surface = deci.GetOutputPort()
@@ -845,39 +878,17 @@ class Create_Training_DataWidget:
             smoothingFilter = vtk.vtkSmoothPolyDataFilter()
             smoothingFilter.SetInputConnection(surface)
             smoothingFilter.SetNumberOfIterations(int(self.smoothing_iterations))
-            smoothingFilter.SetRelaxationFactor(0.10)
-            smoothingFilter.SetFeatureAngle(60.0)
+            smoothingFilter.SetRelaxationFactor(self.relaxation_factor)
             smoothingFilter.Update()
 
             surface = smoothingFilter.GetOutputPort()
 
-        if surfaceNormals == True:
-            # Generate surface normals to give a better visualization
-            normals = vtk.vtkPolyDataNormals()
-            normals.SetInputConnection(surface)
-            normals.FlipNormalsOn()
-            normals.AutoOrientNormalsOn()
-            normals.ComputeCellNormalsOn()
-            normals.Update()
+        # Generate surface normals to give a better visualization        
+        normals = vtk.vtkPolyDataNormals()
+        normals.SetInputConnection(surface)
+        normals.Update()
 
-            surface = normals
-        else:
-            normals = vtk.vtkPolyDataNormals()
-            normals.SetInputConnection(surface)
-            normals.Update()
-
-
-
-        smoother = vtk.vtkWindowedSincPolyDataFilter()
-        smoother.SetInputConnection(normals.GetOutputPort())
-
-        smoother.SetNumberOfIterations(int(self.smoothing_iterations)) # This has little effect on the error!
-        smoother.NonManifoldSmoothingOn()
-        smoother.NormalizeCoordinatesOn()
-        smoother.GenerateErrorScalarsOn()
-        smoother.Update()
-
-        return smoother
+        return normals
 
     def load_image(self, ImgFileName):
         # Load an image using the vtk image reader 
@@ -896,7 +907,7 @@ class Create_Training_DataWidget:
     
     def Combine_Surfaces(self, polydata_list):
         # Combine some number of polydata together
-        # For example, useful for combining all the bones of a joint back together for saving to a .STL file
+        # For example, useful for combining all the bones of a joint back together for saving to a .PLY file
 
         # Append the meshes together
         appendFilter = vtk.vtkAppendPolyData()
@@ -920,154 +931,3 @@ if __name__ == "__main__":
     import sys
     print(sys.argv)
     print("Running this module from the command line is not supported yet.")
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # # Create a multiblock dataset to hold all of the surface polydata
-        # block_set = vtk.vtkMultiBlockDataSet()
-
-        # # Create a group to hold the polydata 
-        # # group = vtk.vtkMultiBlockDataGroupFilter()
-
-
-        # # Load each .stl file and add to the block set of the polydata
-        # for i in range(0, len(files)):
-        #       if files[i][-3:] == 'stl':
-        #           filename = self.directory_path + '/' + files[i]
-        #           reader = vtk.vtkSTLReader()
-        #           reader.SetFileName(filename)
-        #           reader.Update()
-        #           poly_data = reader.GetOutput()
-
-        #           block_set.SetBlock(i, poly_data)
-
-        #           # group.AddInputData(poly_data)
-        #           print(i)
-
-
-        # # try:
-
-
-
-        # # procrustes = vtk.vtkProcrustesAlignmentFilter()
-        # # procrustes.SetInputConnection(group.GetOutputPort())
-        # # procrustes.GetLandmarkTransform().SetModeToSimilarity()
-        # # procrustes.Update()
-
-
-        # # PCA filter
-        # pca = vtk.vtkPCAAnalysisFilter()
-        # # pca.SetInputConnection(procrustes.GetOutputPort())
-        # pca.SetInputData(block_set)
-        # pca.Update()
-
-
-
-
-        # # Display the most important eigenvalues 
-        # # EVNo = pca.GetModesRequiredFor(0.90)
-        # # for j in range (0,EVNo):
-        # #     print pca.GetEvals().GetValue(j)
-
-
-        # # Fit the model to some particular shape!!
-        # params = vtk.vtkFloatArray()
-        # params.SetNumberOfComponents(1)
-        # params.SetNumberOfTuples(4)
-        # params.SetTuple1(1,self.FirstEV)
-        # params.SetTuple1(2,self.SecondEV)
-        # params.SetTuple1(3,self.ThirdEV)
-
-        # output_shape = vtk.vtkPolyData()
-        # output_shape.DeepCopy(poly_data)
-
-        # pca.GetParameterisedShape(params,output_shape)
-
-
-        # # Update the model (instead of creating a new one) if possible
-        # # By removing all the polydata beginning with PCA_
-        # # Only do this is the auto delete checkmark is checked
-        # print('self.auto_delete.checked')
-        # print(self.auto_delete.checked)
-
-
-        # if self.auto_delete.checked == True:
-        #   nodes = slicer.util.getNodes('PCA*')
-        #   for node in nodes.values():
-        #       slicer.mrmlScene.RemoveNode(node)
-
-
-        # # Create model node ("Model_Result") and add to scene
-        # Model_Result = slicer.vtkMRMLModelNode()
-        # Model_Result.SetAndObservePolyData(output_shape)
-        # Model_Result.SetName('PCA')
-        # modelDisplay = slicer.vtkMRMLModelDisplayNode()
-        # modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-        # modelDisplay.SetVisibility(True) # Show in 3D view
-        # modelDisplay.SetName('PCA')
-        # slicer.mrmlScene.AddNode(modelDisplay)
-        # Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-        # slicer.mrmlScene.AddNode(Model_Result) 
-
-        # except:
-            # print('Failed to create PCA model')
-
-
-
-
-        # normalsa = vtk.vtkPolyDataNormals()
-        # normalsa.SetInputData(poly_data)
-        # map3a = vtk.vtkPolyDataMapper()
-        # map3a.SetInputConnection(normalsa.GetOutputPort())
-        # Actor = vtk.vtkActor()
-        # Actor.SetMapper(map3a)
-        # Actor.GetProperty().SetDiffuseColor(1.0000,0.3882,1)
-        # Actor.GetProperty().SetPointSize(5)
-
-
-
-
-        # ren1 = vtk.vtkRenderer()
-        # renWin = vtk.vtkRenderWindow()
-
-        # camera = vtk.vtkCamera();
-        # camera.SetPosition(0, 0, 100);
-        # camera.SetFocalPoint(0, 0, 0);
-
-
-        # ren1.SetActiveCamera(camera);
-
-
-        # renWin.AddRenderer(ren1)
-        # renWin.SetSize(640,480)
-        # iren = vtk.vtkRenderWindowInteractor()
-        # iren.SetRenderWindow(renWin)
-        # ren1.AddActor(Actor)
-        # ren1.ResetCamera()
-        # ren1.ResetCamera()
-        # renWin.Render()
-
-        # iren.Initialize()
-        # iren.Start()
-
-
-
-        # # Create model node ("ICP_Result") and add to scene
-        # ICP_Result = slicer.vtkMRMLModelNode()
-        # ICP_Result.SetAndObservePolyData(transformedSource)
-        # modelDisplay = slicer.vtkMRMLModelDisplayNode()
-        # modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-        # modelDisplay.SetVisibility(True) # Show in 3D view
-        # slicer.mrmlScene.AddNode(modelDisplay)
-        # ICP_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-        # slicer.mrmlScene.AddNode(ICP_Result) 

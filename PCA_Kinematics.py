@@ -357,7 +357,7 @@ class PCA_KinematicsWidget:
         self.RedColorSlider.setToolTip(tooltip)
         self.RedColorSlider.minimum = 0
         self.RedColorSlider.maximum = 1
-        self.RedColorSlider.value = 0.5
+        self.RedColorSlider.value = 0.8
         self.RedColorSlider.singleStep = 0.01
         self.RedColorSlider.tickInterval = 0.01
         self.RedColorSlider.decimals = 2
@@ -376,7 +376,7 @@ class PCA_KinematicsWidget:
         self.GreenColorSlider.setToolTip(tooltip)
         self.GreenColorSlider.minimum = 0
         self.GreenColorSlider.maximum = 1
-        self.GreenColorSlider.value = 0.5
+        self.GreenColorSlider.value = 0.8
         self.GreenColorSlider.singleStep = 0.01
         self.GreenColorSlider.tickInterval = 0.01
         self.GreenColorSlider.decimals = 2
@@ -395,34 +395,13 @@ class PCA_KinematicsWidget:
         self.BlueColorSlider.setToolTip(tooltip)
         self.BlueColorSlider.minimum = 0
         self.BlueColorSlider.maximum = 1
-        self.BlueColorSlider.value = 0.5
+        self.BlueColorSlider.value = 0.8
         self.BlueColorSlider.singleStep = 0.01
         self.BlueColorSlider.tickInterval = 0.01
         self.BlueColorSlider.decimals = 2
         self.BlueColorSlider.connect('valueChanged(double)', self.onBlueColorSliderChange)
         self.Rendering_Options_FormLayout.addRow(self.label, self.BlueColorSlider)        
         self.BlueColor = self.BlueColorSlider.value # Set default value
-
-        # Autorun toggle button (Does the user want to autorun the model creation when changing the model coefficients?)
-        self.auto_run = qt.QCheckBox("Auto Run")
-        self.auto_run.setFont(qt.QFont(self.font_type, self.font_size))
-        self.auto_run.toolTip = "When checked, auto run the code using the new eigenvalues for creating a new surface."
-        self.auto_run.checked = True
-        self.Rendering_Options_FormLayout.addWidget(self.auto_run) 
-
-        # Auto delete the last model 
-        self.auto_delete = qt.QCheckBox("Auto Delete")
-        self.auto_delete.setFont(qt.QFont(self.font_type, self.font_size))
-        self.auto_delete.toolTip = "When checked, auto delete the surface generated last time. This will delete all the models whose name begin with PCA"
-        self.auto_delete.checked = True
-        self.Rendering_Options_FormLayout.addWidget(self.auto_delete) 
-
-        # Show normal vector checkmark
-        self.show_glyph = qt.QCheckBox("Show Vectors")
-        self.show_glyph.setFont(qt.QFont(self.font_type, self.font_size))
-        self.show_glyph.toolTip = "When checked, the normal vector at each point will be rendered."
-        self.show_glyph.checked = False
-        self.Rendering_Options_FormLayout.addWidget(self.show_glyph) 
 
         # Render the surface as points
         self.represent_points = qt.QCheckBox("Render as points")
@@ -455,6 +434,21 @@ class PCA_KinematicsWidget:
         self.represent_surface_edges.checked = False
         self.Rendering_Options_FormLayout.addWidget(self.represent_surface_edges) 
         self.represent_surface_edges.connect('clicked()', self.onCompute)
+
+        # Show normal vector checkmark
+        self.show_glyph = qt.QCheckBox("Show Surface Normal Vectors")
+        self.show_glyph.setFont(qt.QFont(self.font_type, self.font_size))
+        self.show_glyph.toolTip = "When checked, the normal vector at each point on the surface will be rendered. This is useful for debugging surface mesh issues."
+        self.show_glyph.checked = False
+        self.Rendering_Options_FormLayout.addWidget(self.show_glyph) 
+        self.show_glyph.connect('clicked()', self.onCompute)
+
+        # Auto delete the last model 
+        self.auto_delete = qt.QCheckBox("Auto Delete")
+        self.auto_delete.setFont(qt.QFont(self.font_type, self.font_size))
+        self.auto_delete.toolTip = "When checked, auto delete the surface generated last time. This will delete all the models whose name begin with PCA"
+        self.auto_delete.checked = True
+        self.Rendering_Options_FormLayout.addWidget(self.auto_delete) 
 
         # Button for looping through the model coefficients (for visualizing)
         self.LoopCoefficientsButton = qt.QPushButton("Loop Model Coefficients")
@@ -595,7 +589,7 @@ class PCA_KinematicsWidget:
         glyph.SetSourceConnection(arrow.GetOutputPort())
         glyph.SetInputConnection(maskPts.GetOutputPort())
         glyph.SetVectorModeToUseNormal()
-        glyph.SetScaleFactor(self.SearchDistance) # 1
+        glyph.SetScaleFactor(1) # 1
         glyph.SetColorModeToColorByVector()
         glyph.SetScaleModeToScaleByVector()
         glyph.OrientOn()
@@ -626,35 +620,35 @@ class PCA_KinematicsWidget:
     def onFirstEVSliderChange(self, newValue):
         self.FirstEV = newValue   
 
-        if self.auto_run.checked == True and self.reseting_state == False:              
+        if self.reseting_state == False:              
             # Rebuild the model and create a new instance using the new EV
             self.onCompute()
 
     def onSecondEVSliderChange(self, newValue):
         self.SecondEV = newValue   
 
-        if self.auto_run.checked == True and self.reseting_state == False:
+        if self.reseting_state == False:
             # Rebuild the model and create a new instance using the new EV
             self.onCompute()
 
     def onThirdEVSliderChange(self, newValue):
         self.ThirdEV = newValue 
 
-        if self.auto_run.checked == True and self.reseting_state == False:
+        if self.reseting_state == False:
             # Rebuild the model and create a new instance using the new EV
             self.onCompute()
 
     def onFourthEVSliderChange(self, newValue):
         self.FourthEV = newValue 
 
-        if self.auto_run.checked == True and self.reseting_state == False:
+        if self.reseting_state == False:
             # Rebuild the model and create a new instance using the new EV
             self.onCompute()
 
     def onFifthEVSliderChange(self, newValue):
         self.FifthEV = newValue 
 
-        if self.auto_run.checked == True and self.reseting_state == False:
+        if self.reseting_state == False:
             # Rebuild the model and create a new instance using the new EV
             self.onCompute()
 
@@ -753,15 +747,6 @@ class PCA_KinematicsWidget:
 
     def onLoopCoefficientsButton(self):
         # Loop through each of the model coefficients one at a time. Should be very useful for visualization
-
-        # Wait for 2 seconds after pressing the button (to allow the GUI tab to be closed beforehand for creating animations)
-        timeout = time.time() + 2;
-
-        while True:
-            if time.time() > timeout:
-                break
-            else:
-                slicer.app.processEvents()                
 
         # Have the values increase and then decrease again (for a better visualization)
         values_decreasing_1 = np.linspace(0, -1*self.slider_range, self.loop_coefficients_num_steps);
@@ -939,14 +924,14 @@ class PCA_KinematicsWidget:
 
         if self.auto_delete.checked == True:
             # Delete the previous rendering of the surface
-            nodes = slicer.util.getNodes('Model*')
-            for node in nodes.values():
-                slicer.mrmlScene.RemoveNode(node)
-
-            # Delete the normal vectors being rendered
-            nodes = slicer.util.getNodes('NormalVectors*')
-            for node in nodes.values():
-                slicer.mrmlScene.RemoveNode(node)
+            node = slicer.util.getNode('Model_points')
+            slicer.mrmlScene.RemoveNode(node)
+            node = slicer.util.getNode('Model_wireframe')
+            slicer.mrmlScene.RemoveNode(node)
+            node = slicer.util.getNode('Model_surface')
+            slicer.mrmlScene.RemoveNode(node)
+            node = slicer.util.getNode('Normal_Vectors')
+            slicer.mrmlScene.RemoveNode(node)
 
         if self.represent_points.checked == True:
             Model_Result = slicer.vtkMRMLModelNode()
@@ -1029,7 +1014,7 @@ class PCA_KinematicsWidget:
 
             Model_Result = slicer.vtkMRMLModelNode()
             Model_Result.SetAndObservePolyData(glyph.GetOutput())
-            Model_Result.SetName('NormalVectors')
+            Model_Result.SetName('Normal_Vectors')
 
             modelDisplay = slicer.vtkMRMLModelDisplayNode()
 
@@ -1041,7 +1026,7 @@ class PCA_KinematicsWidget:
             modelDisplay.SetScalarVisibility(True)
             modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
             modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('NormalVectors')
+            modelDisplay.SetName('Normal_Vectors')
             modelDisplay.BackfaceCullingOff()
             modelDisplay.SetActiveScalarName('VectorMagnitude')
             slicer.mrmlScene.AddNode(modelDisplay)
@@ -1098,7 +1083,7 @@ class PCA_KinematicsWidget:
         coefficients = np.delete(coefficients, (0), axis=0)
 
         # Output the coefficients to a text file using numpy
-        np.savetxt(os.path.join(self.fitting_output_directory_path, 'Slicer_PCA_Coefficients.txt'), coefficients, delimiter=',',  fmt='%f')
+        np.savetxt(os.path.join(self.fitting_output_directory_path, 'Fitted_Model_Coefficients.txt'), coefficients, delimiter=',',  fmt='%f')
 
         # We need to know which surface file corresponds to which coefficent
         # This text file will list the order the surfaces in the coefficient text file
