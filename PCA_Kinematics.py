@@ -39,9 +39,9 @@ class PCA_Kinematics:
         <br>
         (2) Create PCA Kinematic Model: Using the folder of training data to construct the displacement model. 
         <br>
-        (4) Model Coefficient Fitting and Interpolation: Using the constructed displacement model, fit the model to each surface within a folder to find the best fitting model coefficients which is then saved to a text file. Note that these surfaces must be in correspondence with the displacement model.
+        (3) Model Coefficient Fitting and Interpolation: Using the constructed displacement model, fit the model to each surface within a folder to find the best fitting model coefficients which is then saved to a text file. Note that these surfaces must be in correspondence with the displacement model.
         <br>
-        (5) Rendering Options: Several rendering options are provided.
+        (4) Rendering Options: Several rendering options are provided.
 
         """
             ).substitute({
