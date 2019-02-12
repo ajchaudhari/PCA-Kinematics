@@ -1,7 +1,7 @@
 PCA-Kinematics 3D Slicer Module
 =============
 
-The 3D Slicer implementation of the method described in  [Foster B, Shaw CB, Boutin RD, Bayne CO, Szabo RM, Joshi AA, and Chaudhari AJ, A Principal Component Analysis-based Framework for Statistical Modeling of Bone Displacement During Wrist Maneuvers, Journal of Biomechanics, https://doi.org/10.1016/j.jbiomech.2019.01.030](https://www.sciencedirect.com/science/article/pii/S0021929019300661). 
+The 3D Slicer implementation of the method described in  [Foster et al. 2019](https://www.sciencedirect.com/science/article/pii/S0021929019300661). 
 
 An example dataset of the training data is provided in the "Example_Data" folder. 
 
@@ -35,7 +35,7 @@ Input Data
 ------- 
 
 <p>
-    <img src="Documentation/Input Example Gif.gif" alt>
+    <img src="Documentation/Input Example Gif.gif" alt width="50%">
     <em> Example segmented MR image of the wrist. The module takes a folder of these segmented images (with the same unique label for each bone) as an input. </em>
 </p>
 
@@ -44,7 +44,7 @@ Module 1: Create Training Data
 ------- 
 
 <p>
-    <img src="Documentation/Module 1 Example.gif" alt>
+    <img src="Documentation/Module 1 Example.gif" alt width="50%">
     <em> Using a folder of segmented images (which have the same unique label for each bone) as an input, the model creates the training data using the procedure described in the paper. </em>
 </p>
 
@@ -52,7 +52,7 @@ Module 2: Create Bone Displacement Model
 ------- 
 
 <p>
-    <img src="Documentation/Module 2 Example.gif" alt>
+    <img src="Documentation/Module 2 Example.gif" alt width="50%">
     <em> The second module takes the output of module 1 (the training data) and creates the bone displacement model using the procedure described in the paper. </em>
 </p>
 
@@ -60,7 +60,12 @@ Eigenspace Interpolation
 ------- 
 
 <p>
-    <img src="Documentation/Eigenspace Interpolation.gif" alt>
+    <img src="Documentation/Eigenspace Interpolation.gif" alt width="50%">
     <em> Module 2 also has the ability to fit the created bone displacement model to a set of surfaces (which must be in correspondence to the model) and then can interpolate between them in eigenspace. This may allow for more realistic displacement patterns for individual joint modeling. The best fitted model coeffients are also saved to a text file if further analysis is needed. </em>
 </p>
 
+Publication
+------- 
+For further details on the method, please see the below paper.
+
+[Foster B, Shaw CB, Boutin RD, Bayne CO, Szabo RM, Joshi AA, and Chaudhari AJ, A Principal Component Analysis-based Framework for Statistical Modeling of Bone Displacement During Wrist Maneuvers, Journal of Biomechanics (2019).  https://doi.org/10.1016/j.jbiomech.2019.01.030](https://www.sciencedirect.com/science/article/pii/S0021929019300661).
