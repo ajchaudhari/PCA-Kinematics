@@ -262,7 +262,7 @@ class Create_Training_DataWidget:
         self.Bone_Decimate_Slider.setToolTip("Select the ratio of verticies to remove from the bone surface. This results in a smoother surface and less points for faster computation. Too much could cause surface artifacts. For example, 0.1 removes 10 percent while 0.9 removes 90 percent of points.")     
         self.Bone_Decimate_Slider.minimum = 0
         self.Bone_Decimate_Slider.maximum = 0.9
-        self.Bone_Decimate_Slider.value = 0.2
+        self.Bone_Decimate_Slider.value = 0
         self.Bone_Decimate_Slider.singleStep = 0.05
         self.Bone_Decimate_Slider.tickInterval = 0.05
         self.Bone_Decimate_Slider.decimals = 2
@@ -599,8 +599,7 @@ class Create_Training_DataWidget:
                 iter = iter + 1
                 slicer.util.showStatusMessage("Extracting Surfaces...")
 
-                polydata = self.Extract_Surface(images_list[curr_file], label)
-                polydata = polydata.GetOutput()              
+                polydata = self.Extract_Surface(images_list[curr_file], label)            
                 polydata_list[label].append(polydata)       
 
                 # Create model node ("Extract_Shapes") and add to scene
@@ -861,34 +860,41 @@ class Create_Training_DataWidget:
         cleanPolyData = vtk.vtkCleanPolyData()
         cleanPolyData.SetInputConnection(boneNormals.GetOutputPort())
         cleanPolyData.Update()
-        surface = cleanPolyData.GetOutputPort()
+        polydata = cleanPolyData.GetOutput()
+
+        if self.smoothing_iterations > 0:
+            # Apply laplacian smoothing to the surface
+            smoothingFilter = vtk.vtkSmoothPolyDataFilter()
+            smoothingFilter.SetInputData(polydata)
+            smoothingFilter.SetNumberOfIterations(int(self.smoothing_iterations))
+            smoothingFilter.SetRelaxationFactor(self.relaxation_factor)
+            smoothingFilter.Update()
+
+            polydata = smoothingFilter.GetOutput()
 
         if self.decimate_surface  > 0 and self.decimate_surface < 1:
             # We want to preserve topology (not let any cracks form). This may
             # limit the total reduction possible, which we have specified at 80%.
             deci = vtk.vtkDecimatePro()
-            deci.SetInputConnection(surface)
+            deci.SetInputData(polydata)
             deci.SetTargetReduction(self.decimate_surface)
             deci.PreserveTopologyOn()
+            deci.Update()
+            polydata = deci.GetOutput()
 
-            surface = deci.GetOutputPort()
-
-        if self.smoothing_iterations > 0:
-            # Apply laplacian smoothing to the surface
-            smoothingFilter = vtk.vtkSmoothPolyDataFilter()
-            smoothingFilter.SetInputConnection(surface)
-            smoothingFilter.SetNumberOfIterations(int(self.smoothing_iterations))
-            smoothingFilter.SetRelaxationFactor(self.relaxation_factor)
-            smoothingFilter.Update()
-
-            surface = smoothingFilter.GetOutputPort()
+        # Clean the polydata so that the edges are shared!
+        cleanPolyData = vtk.vtkCleanPolyData()
+        cleanPolyData.SetInputData(polydata)
+        cleanPolyData.Update()
+        polydata = cleanPolyData.GetOutput()
 
         # Generate surface normals to give a better visualization        
         normals = vtk.vtkPolyDataNormals()
-        normals.SetInputConnection(surface)
+        normals.SetInputData(polydata)
         normals.Update()
+        polydata = normals.GetOutput()
 
-        return normals
+        return polydata
 
     def load_image(self, ImgFileName):
         # Load an image using the vtk image reader 
