@@ -329,11 +329,25 @@ class Create_Training_DataWidget:
         self.CollapseFormLayout.addWidget(self.flip_image_horizontally) 
 
         # Show the save bones separately toggle button
-        self.Save_Bones_Separately = qt.QCheckBox("Save Bones Separately")
-        self.Save_Bones_Separately.setFont(qt.QFont(self.font_type, self.font_size))
-        self.Save_Bones_Separately.toolTip = "When checked, save each bone surface separately (instead of combining all the bones for each volunteer/position together)."
-        self.Save_Bones_Separately.checked = False
-        self.CollapseFormLayout.addWidget(self.Save_Bones_Separately) 
+        self.Save_Extracted_Bones_Separately = qt.QCheckBox("Save Extracted Bones Separately")
+        self.Save_Extracted_Bones_Separately.setFont(qt.QFont(self.font_type, self.font_size))
+        self.Save_Extracted_Bones_Separately.toolTip = "When checked, save each bone surface separately after smoothing and before any registration."
+        self.Save_Extracted_Bones_Separately.checked = False
+        self.CollapseFormLayout.addWidget(self.Save_Extracted_Bones_Separately) 
+
+        # Show the save bones separately toggle button
+        self.Save_Registered_Bones_Separately = qt.QCheckBox("Save Registered Bones Separately")
+        self.Save_Registered_Bones_Separately.setFont(qt.QFont(self.font_type, self.font_size))
+        self.Save_Registered_Bones_Separately.toolTip = "When checked, save each bone surface separately after smoothing and registration (instead of combining all the bones for each volunteer/position together)."
+        self.Save_Registered_Bones_Separately.checked = False
+        self.CollapseFormLayout.addWidget(self.Save_Registered_Bones_Separately) 
+
+        # Skip the registration
+        self.Skip_Registration = qt.QCheckBox("Skip Registration Steps")
+        self.Skip_Registration.setFont(qt.QFont(self.font_type, self.font_size))
+        self.Skip_Registration.toolTip = "When checked, extract each bone surface from the image and smooth the surface (this is useful if the user only wishes to extract the bones from the images and smooth them.) Consider using along with the save extracted bones setting."
+        self.Skip_Registration.checked = False
+        self.CollapseFormLayout.addWidget(self.Skip_Registration) 
 
         # Don't save the reference bone toggle button
         self.Remove_Ref_Bone = qt.QCheckBox("Remove the reference bone")
@@ -613,6 +627,35 @@ class Create_Training_DataWidget:
                     Extract_Shapes.SetAndObserveDisplayNodeID(modelDisplay.GetID())
                     slicer.mrmlScene.AddNode(Extract_Shapes) 
 
+        # Save each registered bone separately?
+        if self.Save_Extracted_Bones_Separately.checked == True:        
+
+            for label in self.bone_labels: 
+                for i in range(0,len(self.file_list)):           
+                    path = os.path.join(self.output_directory_path, 'Bone_' + str(label) + '_position_' + str(i) + '.ply')    
+                    plyWriter = vtk.vtkPLYWriter()
+                    plyWriter.SetFileName(path)
+                    plyWriter.SetInputData(polydata_list[label][i])
+                    plyWriter.Write()
+                    print('Saved: ' + path)
+
+        # If this is set to true, stop the computation after extracting and smoothing the bones
+        if self.Skip_Registration.checked == True:
+
+            # Set the status bar to 100%
+            self.progressBar.setValue(100)
+
+            slicer.app.processEvents()
+            slicer.util.showStatusMessage("Skipping Registration Step...")
+
+            # Hide the status bar
+            self.progressBar.hide() 
+
+            # Reset the status message on bottom of 3D Slicer
+            slicer.util.showStatusMessage(" ")     
+
+            return 0;
+
         # Update the status bar (start at 30%)
         self.progressBar.setValue(30 + 20) # Use 20% of the bar for this
         slicer.app.processEvents()
@@ -727,8 +770,8 @@ class Create_Training_DataWidget:
             plyWriter.Write()
             print('Saved: ' + path)
 
-            # Save each bone separately as well?
-            if self.Save_Bones_Separately.checked == True:        
+            # Save each registered bone separately as well?
+            if self.Save_Registered_Bones_Separately.checked == True:        
 
                 for label in self.bone_labels:                   
                     path = os.path.join(self.output_directory_path, 'Position_' + str(i) + '_bone_' + str(label) + '.ply')    
