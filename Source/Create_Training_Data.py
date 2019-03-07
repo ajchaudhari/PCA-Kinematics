@@ -227,7 +227,7 @@ class Create_Training_DataWidget:
         self.Bone_Smoothing_Its_Slider = ctk.ctkSliderWidget()
         self.Bone_Smoothing_Its_Slider.setToolTip("Select the number of iterations for smoothing the bone surface. Higher iterations will smooth more. Lower iterations will have less smoothing.")
         self.Bone_Smoothing_Its_Slider.minimum = 0
-        self.Bone_Smoothing_Its_Slider.maximum = 20
+        self.Bone_Smoothing_Its_Slider.maximum = 30
         self.Bone_Smoothing_Its_Slider.value = 10 
         self.Bone_Smoothing_Its_Slider.singleStep = 1
         self.Bone_Smoothing_Its_Slider.tickInterval = 1

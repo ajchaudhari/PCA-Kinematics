@@ -867,15 +867,6 @@ class PCA_KinematicsWidget:
             except:
                 print('Failed! Did you select a folder containing PLY files of surfaces in correspondence?')
 
-            # Display the most important eigenvalues 
-            print('Eigenvalues required for 100 percent explanation...')
-            EVNo = self.pca_model.GetModesRequiredFor(1)
-            eigenvalues_temp = []
-            for j in range (0,EVNo):
-                eigenvalues_temp.append(self.pca_model.GetEvals().GetValue(j))
-
-            print(eigenvalues_temp)
-
         # Show the model at the specified scaling parameters
         params = vtk.vtkFloatArray()
         params.SetNumberOfComponents(1)
@@ -924,14 +915,29 @@ class PCA_KinematicsWidget:
 
         if self.auto_delete.checked == True:
             # Delete the previous rendering of the surface
-            node = slicer.util.getNode('Model_points')
-            slicer.mrmlScene.RemoveNode(node)
-            node = slicer.util.getNode('Model_wireframe')
-            slicer.mrmlScene.RemoveNode(node)
-            node = slicer.util.getNode('Model_surface')
-            slicer.mrmlScene.RemoveNode(node)
-            node = slicer.util.getNode('Normal_Vectors')
-            slicer.mrmlScene.RemoveNode(node)
+            try:
+                node = slicer.util.getNode('Model_points')
+                slicer.mrmlScene.RemoveNode(node)
+            except:
+                pass
+
+            try:
+                node = slicer.util.getNode('Model_wireframe')
+                slicer.mrmlScene.RemoveNode(node)
+            except:
+                pass
+
+            try:
+                node = slicer.util.getNode('Model_surface')
+                slicer.mrmlScene.RemoveNode(node)
+            except:
+                pass
+
+            try:
+                node = slicer.util.getNode('Normal_Vectors')
+                slicer.mrmlScene.RemoveNode(node)
+            except:
+                pass
 
         if self.represent_points.checked == True:
             Model_Result = slicer.vtkMRMLModelNode()
