@@ -22,7 +22,7 @@ class PCA_Kinematics:
         parent.contributors = ["Brent Foster (UC Davis)"]
         parent.helpText = string.Template("""
         
-        PURPOSE: Use this 3D Slicer module to construct the bone displacement model using a principal component analysis (PCA) based approach as described in Foster et al Journal of Biomechanics (https://doi.org/10.1016/j.jbiomech.2019.01.030). 
+        PURPOSE: Use this 3D Slicer module to construct the bone displacement model using a principal component analysis (PCA) based approach as described in Foster et al Journal of Biomechanics (https:#doi.org/10.1016/j.jbiomech.2019.01.030). 
         <br>
         <br>
         INPUT: A folder of training data (.ply surfaces) created using the "Create PCA Kinematics Training Data" module. 
@@ -61,7 +61,7 @@ class PCA_Kinematics:
 
         Foster B, Shaw CB, Boutin RD, Bayne CO, Szabo RM, Joshi AA, and Chaudhari AJ, \
         A Principal Component Analysis-based Framework for Statistical Modeling of Bone \
-        Displacement During Wrist Maneuvers, Journal of Biomechanics, https://doi.org/10.1016/j.jbiomech.2019.01.030
+        Displacement During Wrist Maneuvers, Journal of Biomechanics, https:#doi.org/10.1016/j.jbiomech.2019.01.030
 
         """
         parent.index = 1
@@ -120,6 +120,12 @@ class PCA_KinematicsWidget:
         self.directory_path = []
         self.Directory_Input_Surfaces_Fitting = []
         self.fitting_output_directory_path = []
+
+
+        # vtkTransform for moving the PCA model to better fit some image
+        self.FittingTransform = vtk.vtkTransform()
+        self.FittingTransform.Identity()
+
 
     def setup(self):
         frame = qt.QFrame()
@@ -443,13 +449,6 @@ class PCA_KinematicsWidget:
         self.Rendering_Options_FormLayout.addWidget(self.show_glyph) 
         self.show_glyph.connect('clicked()', self.onCompute)
 
-        # Auto delete the last model 
-        self.auto_delete = qt.QCheckBox("Auto Delete")
-        self.auto_delete.setFont(qt.QFont(self.font_type, self.font_size))
-        self.auto_delete.toolTip = "When checked, auto delete the surface generated last time. This will delete all the models whose name begin with PCA"
-        self.auto_delete.checked = True
-        self.Rendering_Options_FormLayout.addWidget(self.auto_delete) 
-
         # Button for looping through the model coefficients (for visualizing)
         self.LoopCoefficientsButton = qt.QPushButton("Loop Model Coefficients")
         self.LoopCoefficientsButton.setFont(qt.QFont(self.font_type, self.font_size))
@@ -505,6 +504,79 @@ class PCA_KinematicsWidget:
         self.Debug_Options_FormLayout.addRow(self.label, self.CoefficentRangeSlider)        
         self.slider_range = self.CoefficentRangeSlider.value # Set default value
 
+        # Experimental Options Collapse button
+        self.Experimental_Options_CollapsibleButton = ctk.ctkCollapsibleButton()
+        self.Experimental_Options_CollapsibleButton.setFont(qt.QFont(self.font_type, self.font_size))
+        self.Experimental_Options_CollapsibleButton.text = "Experimental"
+        self.Experimental_Options_CollapsibleButton.collapsed = True # Default is to not show     
+        frameLayout.addWidget(self.Experimental_Options_CollapsibleButton) 
+
+        # Layout within the model fitting collapsible button
+        self.Experimental_Options_FormLayout = qt.QFormLayout(self.Experimental_Options_CollapsibleButton)
+
+        #
+        # Input Volume Selector
+        #
+        self.inputVolumeSelectorLabel = qt.QLabel()
+        self.inputVolumeSelectorLabel.setText("Input Volume: ")
+        self.inputVolumeSelectorLabel.setToolTip("Select the volume to be segmented")
+        self.inputSelector = slicer.qMRMLNodeComboBox()
+        self.inputSelector.nodeTypes = ("vtkMRMLScalarVolumeNode", "")
+        self.inputSelector.noneEnabled = False
+        self.inputSelector.selectNodeUponCreation = True
+        self.inputSelector.setMRMLScene(slicer.mrmlScene)
+        self.Experimental_Options_FormLayout.addRow(self.inputVolumeSelectorLabel, self.inputSelector)
+
+        # Fit the PCA model to an image
+        self.label = qt.QLabel()
+        self.label.setFont(qt.QFont(self.font_type, self.font_size))
+        self.label.setText("Run Fitting")
+        tooltip = "Fit the PCA model to an image by projecting nearby landmarks onto the PCA model."
+        self.label.setToolTip(tooltip)
+        self.runFittingButton = qt.QPushButton("Start Segmentation")
+        self.runFittingButton.setFont(qt.QFont(self.font_type, self.font_size))
+        self.runFittingButton.setToolTip(tooltip)
+        self.Experimental_Options_FormLayout.addRow(self.label, self.runFittingButton)        
+        self.runFittingButton.connect('clicked()', self.onFitToImageClicked)        
+
+        # Slider for selecting the number of iterations for fitting the model to the image
+        self.label = qt.QLabel()
+        self.label.setFont(qt.QFont(self.font_type, self.font_size))
+        self.label.setText("Fitting Iterations: ")
+        tooltip = "Select the number of iterations to use when fitting the model to the image."
+        self.label.setToolTip(tooltip)
+        self.FittingItsSlider = ctk.ctkSliderWidget()
+        self.FittingItsSlider.setFont(qt.QFont(self.font_type, self.font_size))
+        self.FittingItsSlider.setToolTip(tooltip)
+        self.FittingItsSlider.minimum = 1
+        self.FittingItsSlider.maximum = 50
+        self.FittingItsSlider.value = 15
+        self.FittingItsSlider.singleStep = 1
+        self.FittingItsSlider.tickInterval = 1
+        self.FittingItsSlider.decimals = 0
+        self.FittingItsSlider.connect('valueChanged(double)', self.onFittingItsSliderChange)
+        self.Experimental_Options_FormLayout.addRow(self.label, self.FittingItsSlider)        
+        self.FittingIts = self.FittingItsSlider.value # Set default value
+
+        # Slider for selecting the search space when fitting the model to the image
+        self.label = qt.QLabel()
+        self.label.setFont(qt.QFont(self.font_type, self.font_size))
+        self.label.setText("Search Space: ")
+        tooltip = "Select the search space when fitting the model to the image."
+        self.label.setToolTip(tooltip)
+        self.SearchSpaceSlider = ctk.ctkSliderWidget()
+        self.SearchSpaceSlider.setFont(qt.QFont(self.font_type, self.font_size))
+        self.SearchSpaceSlider.setToolTip(tooltip)
+        self.SearchSpaceSlider.minimum = 1
+        self.SearchSpaceSlider.maximum = 50
+        self.SearchSpaceSlider.value = 15
+        self.SearchSpaceSlider.singleStep = 0.1
+        self.SearchSpaceSlider.tickInterval = 0.1
+        self.SearchSpaceSlider.decimals = 1
+        self.SearchSpaceSlider.connect('valueChanged(double)', self.onSearchSpaceSliderChange)
+        self.Experimental_Options_FormLayout.addRow(self.label, self.SearchSpaceSlider)        
+        self.SearchSpace = self.SearchSpaceSlider.value # Set default value
+
         # Progress Bar (so the user knows how much longer the computation will likely take)
         self.progressBar = qt.QProgressBar()
         self.progressBar.setFont(qt.QFont(self.font_type, self.font_size))
@@ -512,9 +584,13 @@ class PCA_KinematicsWidget:
         frameLayout.addWidget(self.progressBar)
         self.progressBar.hide()  
 
+
+    def onSearchSpaceSliderChange(self, newValue):  
+        self.SearchSpace = newValue
+
     def onCoefficentRangeSliderChange(self, newValue):
         # Save the new value from this slider
-        self.slider_range = newValue;
+        self.slider_range = newValue
 
         # Update the five model coefficient sliders with the new range
         self.FirstEVSlider.minimum  = -self.slider_range
@@ -528,9 +604,13 @@ class PCA_KinematicsWidget:
         self.FifthEVSlider.minimum  = -self.slider_range
         self.FifthEVSlider.maximum  = self.slider_range
 
+    def onFittingItsSliderChange(self, newValue):
+        # Save the new value from this slider
+        self.FittingIts = newValue
+
     def onLoopStepSizeSliderChange(self, newValue):
         # Save the new value from this slider
-        self.loop_coefficients_num_steps = newValue;
+        self.loop_coefficients_num_steps = newValue
 
     def onRedColorSliderChange(self, newValue):
         self.RedColor = newValue
@@ -597,7 +677,6 @@ class PCA_KinematicsWidget:
 
         return glyph
 
-
     def onResetButton(self):
         # Reset all the model coefficient selection sliders back to zero
         
@@ -614,6 +693,8 @@ class PCA_KinematicsWidget:
         # Set the reseting flag back to false now (if needed)
         self.reseting_state = False
 
+        self.FittingTransform.Identity()
+        
         # Rebuild the model and create a new instance using the new EVs
         self.onCompute()
 
@@ -688,9 +769,8 @@ class PCA_KinematicsWidget:
         except:
             self.directoryFittingOutputButton.setText(self.fitting_output_directory_path) # Show the entire path if it is less than 40 characters long
 
-
     def linspace(self, start, stop, num=50, endpoint=True, retstep=False):
-        # Inspired from https://github.com/numpy/numpy/issues/2944
+        # Inspired from https:#github.com/numpy/numpy/issues/2944
 
         import numpy.core.numeric as _nx
 
@@ -740,18 +820,21 @@ class PCA_KinematicsWidget:
 
     def alphanum_key(self, s):
         # For sorting of the filenames to be in numerical order 
-        # Turn a string into a list of string and number chunks "z23a" -> ["z", 23, "a"]
+        # Turn a string into a list of string and number chunks "z23a" . ["z", 23, "a"]
         import re
 
         return [ self.tryint(c) for c in re.split('([0-9]+)', s) ]
 
     def onLoopCoefficientsButton(self):
         # Loop through each of the model coefficients one at a time. Should be very useful for visualization
+        
+        print("self.loop_coefficients_num_steps")
+        print(self.loop_coefficients_num_steps)
 
         # Have the values increase and then decrease again (for a better visualization)
-        values_decreasing_1 = np.linspace(0, -1*self.slider_range, self.loop_coefficients_num_steps);
-        values_increasing = np.linspace(-1*self.slider_range, self.slider_range, self.loop_coefficients_num_steps);
-        values_decreasing_2 = np.linspace(self.slider_range, 0, self.loop_coefficients_num_steps);
+        values_decreasing_1 = np.linspace(0, -1*self.slider_range, int(self.loop_coefficients_num_steps))
+        values_increasing = np.linspace(-1*self.slider_range, self.slider_range, int(self.loop_coefficients_num_steps))
+        values_decreasing_2 = np.linspace(self.slider_range, 0, int(self.loop_coefficients_num_steps))
 
         # Concatinate the increasing and decreasing arrays together into a single vector
         model_cofficient_values = np.concatenate((values_decreasing_1, values_increasing, values_decreasing_2), axis=0)
@@ -774,7 +857,7 @@ class PCA_KinematicsWidget:
 
             # Loop through the model coefficient values selected above
             for j in range(0, len(model_cofficient_values)):
-                print(str(i) + str(model_cofficient_values[j]));
+                print(str(i) + str(model_cofficient_values[j]))
 
                 # Change the value of the sliders now
                 if   (i == 0):
@@ -794,6 +877,8 @@ class PCA_KinematicsWidget:
                 # Rebuild the model and create a new instance using the new EVs
                 self.onCompute()
 
+                slicer.app.processEvents()
+
         # Flag to show the progress bar back to true
         self.show_progress_bar = True
 
@@ -811,7 +896,7 @@ class PCA_KinematicsWidget:
 
             raise ValueError('An input directory was not provided.')
 
-            return;
+            return
 
         # Flag to check if OnCompute() is already running
         if self.Already_Running == True:
@@ -885,6 +970,13 @@ class PCA_KinematicsWidget:
 
         slicer.util.showStatusMessage("Model Coefficients Applied...")
 
+        # Transform the vtkPolyData (used when fitting the PCA model to an image)
+        transformPolyFilter = vtk.vtkTransformPolyDataFilter()
+        transformPolyFilter.SetInputData(self.output_shape)
+        transformPolyFilter.SetTransform(self.FittingTransform)
+        transformPolyFilter.Update()
+        self.output_shape = transformPolyFilter.GetOutput()
+
         # Update the status bar
         # Start at 90%
         self.progressBar.setValue(90)
@@ -909,137 +1001,127 @@ class PCA_KinematicsWidget:
     def Render_Surface(self, polydata):
         # Push the given polydata to the 3D Slicer scene
 
-        # Update the model (instead of creating a new one) if possible
-        # By removing all the polydata beginning with PCA_
-        # Only do this is the auto delete checkmark is checked
-
-        if self.auto_delete.checked == True:
-            # Delete the previous rendering of the surface
-            try:
-                node = slicer.util.getNode('Model_points')
-                slicer.mrmlScene.RemoveNode(node)
-            except:
-                pass
-
-            try:
-                node = slicer.util.getNode('Model_wireframe')
-                slicer.mrmlScene.RemoveNode(node)
-            except:
-                pass
-
-            try:
-                node = slicer.util.getNode('Model_surface')
-                slicer.mrmlScene.RemoveNode(node)
-            except:
-                pass
-
-            try:
-                node = slicer.util.getNode('Normal_Vectors')
-                slicer.mrmlScene.RemoveNode(node)
-            except:
-                pass
-
         if self.represent_points.checked == True:
-            Model_Result = slicer.vtkMRMLModelNode()
-            Model_Result.SetAndObservePolyData(polydata)
-            Model_Result.SetName('Model_points')
-            modelDisplay = slicer.vtkMRMLModelDisplayNode()
+            try:
+                Model_Result = slicer.util.getNode('Model_points')
+                Model_Result.SetAndObservePolyData(polydata)
+            except:
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(polydata)
+                Model_Result.SetName('Model_points')
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
 
-            # Represent the surface as a wireframe is the checkmark was selected by the user
-            modelDisplay.SetRepresentation(0)
+                # Represent the surface as a wireframe is the checkmark was selected by the user
+                modelDisplay.SetRepresentation(0)
 
-            modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-            modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('Model_points')
-            modelDisplay.BackfaceCullingOff()
-            modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
-            slicer.mrmlScene.AddNode(modelDisplay)
-            Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-            slicer.mrmlScene.AddNode(Model_Result) 
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Model_points')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
 
         if self.represent_wireframe.checked == True:
-            Model_Result = slicer.vtkMRMLModelNode()
-            Model_Result.SetAndObservePolyData(polydata)
-            Model_Result.SetName('Model_wireframe')
-            modelDisplay = slicer.vtkMRMLModelDisplayNode()
+            try:
+                Model_Result = slicer.util.getNode('Model_wireframe')
+                Model_Result.SetAndObservePolyData(polydata)
+            except:
 
-            # Represent the surface as a wireframe is the checkmark was selected by the user
-            modelDisplay.SetRepresentation(1)
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(polydata)
+                Model_Result.SetName('Model_wireframe')
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
 
-            modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-            modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('Model_wireframe')
-            modelDisplay.BackfaceCullingOff()
-            modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
-            slicer.mrmlScene.AddNode(modelDisplay)
-            Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-            slicer.mrmlScene.AddNode(Model_Result) 
-
-        if self.represent_surface.checked == True:
-            Model_Result = slicer.vtkMRMLModelNode()
-            Model_Result.SetAndObservePolyData(polydata)
-            Model_Result.SetName('Model_surface')
-            modelDisplay = slicer.vtkMRMLModelDisplayNode()
-
-            # Represent the surface as a wireframe is the checkmark was selected by the user
-            modelDisplay.SetRepresentation(2)
-
-            modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-            modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('Model_surface')
-            modelDisplay.BackfaceCullingOff()
-            modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
-            slicer.mrmlScene.AddNode(modelDisplay)
-            Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-            slicer.mrmlScene.AddNode(Model_Result) 
-
-        if self.represent_surface_edges.checked == True:
-            Model_Result = slicer.vtkMRMLModelNode()
-            Model_Result.SetAndObservePolyData(polydata)
-            Model_Result.SetName('Model_surface')
-            modelDisplay = slicer.vtkMRMLModelDisplayNode()
-            modelDisplay.EdgeVisibilityOn()
-
-            # Represent the surface as a wireframe is the checkmark was selected by the user
-            modelDisplay.SetRepresentation(2)
-
-            modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-            modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('Model_surface')
-            modelDisplay.BackfaceCullingOff()
-            modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
-            slicer.mrmlScene.AddNode(modelDisplay)
-            Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-            slicer.mrmlScene.AddNode(Model_Result) 
-
-        # Show a vector (i.e. glyph) of the normal at each point along the surface
-        if self.show_glyph.checked == True:
-            glyph = self.CreateGlyphs(polydata, True)
-
-            scalarRangeElevation = polydata.GetScalarRange()
-
-            Model_Result = slicer.vtkMRMLModelNode()
-            Model_Result.SetAndObservePolyData(glyph.GetOutput())
-            Model_Result.SetName('Normal_Vectors')
-
-            modelDisplay = slicer.vtkMRMLModelDisplayNode()
-
-            if self.represent_wireframe.checked == True:
                 # Represent the surface as a wireframe is the checkmark was selected by the user
                 modelDisplay.SetRepresentation(1)
 
-            modelDisplay.SetScalarRange(scalarRangeElevation)
-            modelDisplay.SetScalarVisibility(True)
-            modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
-            modelDisplay.SetVisibility(True) # Show in 3D view
-            modelDisplay.SetName('Normal_Vectors')
-            modelDisplay.BackfaceCullingOff()
-            modelDisplay.SetActiveScalarName('VectorMagnitude')
-            slicer.mrmlScene.AddNode(modelDisplay)
-            Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-            slicer.mrmlScene.AddNode(Model_Result) 
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Model_wireframe')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
 
-            return
+        if self.represent_surface.checked == True:
+            try:
+                Model_Result = slicer.util.getNode('Model_surface')
+                Model_Result.SetAndObservePolyData(polydata)
+            except:
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(polydata)
+                Model_Result.SetName('Model_surface')
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
+
+                # Represent the surface as a wireframe is the checkmark was selected by the user
+                modelDisplay.SetRepresentation(2)
+
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Model_surface')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
+
+        if self.represent_surface_edges.checked == True:
+            try:
+                Model_Result = slicer.util.getNode('Model_surface')
+                Model_Result.SetAndObservePolyData(polydata)
+            except:
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(polydata)
+                Model_Result.SetName('Model_surface')
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
+                modelDisplay.EdgeVisibilityOn()
+
+                # Represent the surface as a wireframe is the checkmark was selected by the user
+                modelDisplay.SetRepresentation(2)
+
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Model_surface')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
+
+        # Show a vector (i.e. glyph) of the normal at each point along the surface
+        if self.show_glyph.checked == True:
+            try:
+                Model_Result = slicer.util.getNode('Normal_Vectors')
+                glyph = self.CreateGlyphs(polydata, True)
+                Model_Result.SetAndObservePolyData(glyph.GetOutput())
+
+            except:
+                glyph = self.CreateGlyphs(polydata, True)
+                scalarRangeElevation = polydata.GetScalarRange()
+
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(glyph.GetOutput())
+                Model_Result.SetName('Normal_Vectors')
+
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
+
+                if self.represent_wireframe.checked == True:
+                    # Represent the surface as a wireframe is the checkmark was selected by the user
+                    modelDisplay.SetRepresentation(1)
+
+                modelDisplay.SetScalarRange(scalarRangeElevation)
+                modelDisplay.SetScalarVisibility(True)
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Normal_Vectors')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetActiveScalarName('VectorMagnitude')
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
 
     def Fit_Polydata(self, pca_model, polydata_list, num_tuples):
         # Use the PCA model to find the best fitting scaling components
@@ -1217,7 +1299,7 @@ class PCA_KinematicsWidget:
 
             raise ValueError('A directory of surfaces for fitting was not provided.')
 
-            return;
+            return
 
         if self.pca_model == []:
 
@@ -1231,7 +1313,7 @@ class PCA_KinematicsWidget:
 
             raise ValueError('A bone displacement model has not been created yet.')
 
-            return;
+            return
         
         if self.fitting_output_directory_path == []:
 
@@ -1245,7 +1327,7 @@ class PCA_KinematicsWidget:
 
             raise ValueError('An output directory to save the text files to was not provided.')
 
-            return;
+            return
 
 
 
@@ -1262,7 +1344,6 @@ class PCA_KinematicsWidget:
         self.Fit_Polydata(self.pca_model, self.polydata_list, self.num_tuples)
 
         shape = self.fitted_coefficients.shape
-
 
     def onTimeSelectSlider_FittedChange(self):
         # After fitting the model to the surfaces in the Run Fitting Procedure folder, 
@@ -1281,7 +1362,7 @@ class PCA_KinematicsWidget:
 
             raise ValueError('A bone displacement model has not been created yet.')
 
-            return;
+            return
 
         
         # Flag to check if onTimeSelectSlider_FittedChange() is already running
@@ -1358,6 +1439,390 @@ class PCA_KinematicsWidget:
     def onFittingOrderSlider_FittedChange(self, newValue):
         # Save the current state of the slider
         self.FittingOrder_Fitted = newValue
+
+    def onFitToImageClicked(self):
+        # Fit the PCA model to some image by finding a set of new landmarks 
+        # and then project these landmarks on to the eigenvectors in order to
+        # update the PCA model coefficients
+
+        # Find the input image in Slicer and convert to a SimpleITK image type
+        imageID = self.inputSelector.currentNode()
+        image = sitkUtils.PullFromSlicer(imageID.GetName())
+        spacing = image.GetSpacing()
+        origin = image.GetOrigin()
+      
+        print("spacing: ")
+        print(spacing)
+      
+        print("origin: ")
+        print(origin)
+
+        print("image: ")
+        print(image)
+
+        
+        imgExtent = image.GetSize()
+        print("imgExtent: ")
+        print(imgExtent)
+            
+        for a in range(0, int(self.FittingIts)):
+
+            currentPCASurface = self.output_shape
+
+
+
+            numTuples = 5
+            SearchDistance = self.SearchSpace
+            NumSamples = 10
+
+            # Calculate surface normals for the vtkPolyData surface 
+            normalGenerator = vtk.vtkPolyDataNormals()
+            normalGenerator.SetInputData(currentPCASurface)
+            normalGenerator.ComputePointNormalsOn()
+            normalGenerator.SetSplitting(0) # This is needed to keep the number of points the same!
+            normalGenerator.Update()
+
+            # Create a polydata object which will hold the polydata normal vectors
+            polydata_Normals =  vtk.vtkPolyData()
+            polydata_Normals = normalGenerator.GetOutput()
+
+            # Point normals
+            normalsArray = polydata_Normals.GetPointData().GetNormals()
+
+            # Create a vtkPoints object which will hold the landmark points on the image for fitting the PCA model to
+            # Reset this each iteration of model fitting
+            landmarkPoints = vtk.vtkPoints()
+
+            # Create a vtkPoints object to hold all the points on the image sampled (for debugging)
+            sampledPoints = vtk.vtkPoints()
+
+            # Get the verticies and points from the input polydata
+            points = vtk.vtkPoints()
+            points = currentPCASurface.GetPoints()
+
+            # Iterate over the points on the PCA_Surface_Vector[model_ndx] vtkPolyData
+            for i in range(0, points.GetNumberOfPoints()):
+
+                # # Initilize a variable to hold the current point
+                # double p[3]
+
+                # # Initilize a variable to hold the normal vector
+                # double dataN[3]
+
+                # Get the current point on the PCA model surface
+                p = points.GetPoint(i)
+                p = list(p)   
+
+                # Get the normal vector at the current point on the PCA model surface
+                dataN = normalsArray.GetTuple(i)
+
+                # # Find a perpendicular vector for each of the normal vectors
+                # # This will allow us to sample not just in the normal direction, but perpendicular to it as well
+                # # Hopefully will make the fitting more robust
+                # # See: https:#www.vtk.org/Wiki/VTK/Examples/Cxx/Math/VectorDot
+                # # double cross_P[3]
+                # cross_P = [0, 0, 0]
+                # vect_B = [ 0, 1, 0 ]
+                # cross_P[0] = dataN[1] * vect_B[2] - dataN[2] * vect_B[1]
+                # cross_P[1] = dataN[0] * vect_B[2] - dataN[2] * vect_B[0]
+                # cross_P[2] = dataN[0] * vect_B[1] - dataN[1] * vect_B[0]
+                # Normalize this vector
+                #double len = std::sqrt(cross_P[0]*cross_P[0] + cross_P[1]*cross_P[1] + cross_P[2]*cross_P[2])
+                #cross_P[0] /= len
+                #cross_P[1] /= len
+                #cross_P[2] /= len
+
+                #cout << "cross_P: " << cross_P[0] << " " << cross_P[1] << " " << cross_P[2] << '\n'
+
+                # Convert the current point from physical back to image units
+                # print("p 1 = ")
+                # print(p)
+                
+                # print("p 2 = ")
+                # print(image.TransformPhysicalPointToIndex(p))
+
+                p = image.TransformPhysicalPointToIndex(p)
+
+                # p = [200, 200, 200]
+
+                # p[0] = (p[0] - origin[0]) / spacing[0]
+                # p[1] = (p[1] - origin[1]) / spacing[1]
+                # p[2] = (p[2] - origin[2]) / spacing[2]
+
+                # print("p 3 = ")
+                # print(p)
+
+                # # Sample the image at this point
+                # tempIntensity = image.GetPixel(p[0],p[1],p[2])
+                # print("tempIntensity = ")
+                # print(tempIntensity)
+
+                dataN = list(dataN)
+
+                # Convert the current normal vector from physical to image units
+                dataN[0] = dataN[0] / spacing[0]
+                dataN[1] = dataN[1] / spacing[1]
+                dataN[2] = dataN[2] / spacing[2]
+
+                # # Convert the current normal vector from physical to image units
+                # cross_P[0] = cross_P[0] / spacing[0]
+                # cross_P[1] = cross_P[1] / spacing[1]
+                # cross_P[2] = cross_P[2] / spacing[2]
+
+                # Variable to hold a vector of the pixel intensities
+                # To save the intensitiies along the normal vector, then pick one of them as a landmark
+                pixelIntensities = []
+
+                # Variables to hold a vector of the pixel locations sampled, then pick one of them as a landmark
+                # Vectors in c++ can't hold arrays so need to use three separate ones
+                pixelLocations_X = []
+                pixelLocations_Y = []
+                pixelLocations_Z = []
+
+                # Create three temporary vectors
+                pixelLocations_X_temp = []
+                pixelLocations_Y_temp = []
+                pixelLocations_Z_temp = []
+
+                first_point  = [0,0,0]
+                second_point = [0,0,0]
+
+                # The two points found by the current surface vertice (i.e. p) and the current normal vector (i.e. dataN)
+                for k in range(0,3):
+                    first_point[k] = p[k] - SearchDistance / 1 * dataN[k] # -SearchDistance / 10 *z / 10 * cross_P[k]
+                    second_point[k] = p[k] + SearchDistance / 1 * dataN[k] # +SearchDistance / 10 *z / 10 * cross_P[k]            
+
+                # Use the linspace function to find equally spaced values
+                pixelLocations_X_temp = np.linspace(first_point[0], second_point[0], NumSamples)
+                pixelLocations_Y_temp = np.linspace(first_point[1], second_point[1], NumSamples)
+                pixelLocations_Z_temp = np.linspace(first_point[2], second_point[2], NumSamples)
+
+                # Add the newly found locations to the previous vector for X, Y, and Z
+                for i in range(0, len(pixelLocations_X_temp)):
+                    p = [pixelLocations_X_temp[i], pixelLocations_Y_temp[i], pixelLocations_Z_temp[i]]
+                    # p = image.TransformPhysicalPointToIndex(p)
+
+                    pixelLocations_X.append(p[0])
+                    pixelLocations_Y.append(p[1])
+                    pixelLocations_Z.append(p[2])
+
+                    
+
+                # Loop through the pixel locations and sample the image at these locations
+                for z in range(0, len(pixelLocations_X)):
+
+                    # double pixelNewPoint
+                    
+                    # # Check to make sure the point is within the image extent
+                    # if (pixelLocations_X[z] <= imgExtent[0] or pixelLocations_X[0] >= imgExtent[1] or
+                    #     pixelLocations_Y[z] <= imgExtent[2] or pixelLocations_Y[z] >= imgExtent[3] or
+                    #     pixelLocations_Z[z] <= imgExtent[4] or pixelLocations_Z[z] >= imgExtent[5]):
+                    #         #  or std::isnan(pixelLocations_X[0]) or std::isnan(pixelLocations_X[1]) or std::isnan(pixelLocations_X[2])
+                    #     # Pixel is outside the image extent so just use NaN for its intensity
+                    #     pixelNewPoint = -1
+                    # else:
+
+                    # Sample the image at this point
+                    #image.GetPixel(p[0],p[1],p[2]
+                    try:
+                        pixelNewPoint = image.GetPixel(int(pixelLocations_X[z]), int(pixelLocations_Y[z]), int(pixelLocations_Z[z]))
+                    except:
+                        pixelNewPoint = -10000
+
+
+                    # Add this image intensity value to the vector of intensities
+                    pixelIntensities.append(pixelNewPoint)
+
+
+
+                # print("pixelIntensities")
+                # print(pixelIntensities)
+
+                # Convert the current points from image back to physical units
+                for z in range(0, len(pixelLocations_X)):
+
+                    pixelLocations_X[z] = pixelLocations_X[z] * spacing[0] + origin[0]
+                    pixelLocations_Y[z] = pixelLocations_Y[z] * spacing[1] + origin[1]
+                    pixelLocations_Z[z] = pixelLocations_Z[z] * spacing[2] + origin[2]
+
+                    p = [pixelLocations_X[z], pixelLocations_Y[z], pixelLocations_Z[z]]
+                    #p = image.TransformPhysicalPointToIndex(p)
+
+
+                    # Only need to save the sampled points if it is the last iteration of the fitting (i.e. only last iteration is rendered)
+                    #if save_sampled_points == True:
+                    # Add the current sampled point to the vtkPoints (for debugging)
+                    sampledPoints.InsertNextPoint(p[0], p[1], p[2])
+
+
+                ndx = np.amax(pixelIntensities)
+
+
+                
+                # int ndx
+                # # SearchType 0 is use maximum intensity along the sampled vector
+                # if (SearchType == 0) {
+                #     ndx = max_element(pixelIntensities.begin(), pixelIntensities.end()) - pixelIntensities.begin()
+                # }
+                # # SearchType 1 is use minimum intensity along the sampled vector
+                # else if (SearchType == 1) {
+                #     ndx = min_element(pixelIntensities.begin(), pixelIntensities.end()) - pixelIntensities.begin()
+                # }
+
+                # # Find the maximum value, the minimum value, and then find the ndx halfway between them
+                # SearchType = 3
+                # if (SearchType == 3):
+
+                #     # Array to hold the temp vector
+                #     temp_vec = []
+
+                #     # Find the difference between each element (i.e. the derivative)
+                #     for i in range(0, len(pixelIntensities) - 1):
+                #         temp_vec.append(pixelIntensities[i + 1] - pixelIntensities[i])
+                    
+                #     # Choose the largest difference (i.e. the largest gradient)
+                #     ndx = np.amax(temp_vec)
+
+                # Use the found minimum pixel location to save the x, y, and z coordinates
+                try:
+                    bestPoint = [0,0,0]
+                    bestPoint[0] = pixelLocations_X[ndx]
+                    bestPoint[1] = pixelLocations_Y[ndx]
+                    bestPoint[2] = pixelLocations_Z[ndx]
+                except:
+                    bestPoint = points.GetPoint(i)
+
+                # Add the best found point to the vtkPoints holding the landmark points
+                landmarkPoints.InsertNextPoint(bestPoint)
+
+            # Set the points and vertices as the geometry and topology of the polydata
+            polydataLandmarks = vtk.vtkPolyData()
+            polydataLandmarks.DeepCopy(currentPCASurface) # Copy the PCA model surface polydata
+            #polydataLandmarks.SetPoints(landmarkPoints)
+            #polydataLandmarks.SetVerts(currentPCASurface.GetVerts())
+            #polydataLandmarks.SetPolys(currentPCASurface.GetPolys())
+
+
+            print("landmarkPoints")
+            print(landmarkPoints)
+
+
+            print("polydataLandmarks")
+            print(polydataLandmarks)
+            
+
+            # # ICP rigid registration between the PCA model surface and the new landmark
+            # icp = vtk.vtkIterativeClosestPointTransform()
+            # icp.SetSource(currentPCASurface)
+            # icp.SetTarget(polydataLandmarks)
+            # icp.GetLandmarkTransform().SetModeToRigidBody()
+            # #icp.DebugOn()
+            # icp.SetMaximumNumberOfIterations(50)
+            # icp.StartByMatchingCentroidsOff()
+            # icp.Modified()
+            # icp.Update()
+
+            # print("self.FittingTransform")
+            # print(self.FittingTransform)
+
+            # print("icp.GetLandmarkTransform()")
+            # print(icp.GetLandmarkTransform())
+
+            # # Concatenate the ICP transform with the previous transform
+            # #self.FittingTransform.Concatenate(icp.GetLandmarkTransform())
+
+            # # Transform the new landmarks back to the original PCA model coordinate axes
+            # transformPolyFilter = vtk.vtkTransformPolyDataFilter()
+            # transformPolyFilter.SetInputData(polydataLandmarks)
+            # transformPolyFilter.SetTransform(self.FittingTransform.Inverse())
+            # transformPolyFilter.Update()
+            # polydataLandmarks = transformPolyFilter.GetOutput()
+
+            showLandmarks = True
+
+            if showLandmarks == True:
+                try:
+                    node = slicer.util.getNode('Model_points')
+                    slicer.mrmlScene.RemoveNode(node)
+                except:
+                    pass
+
+                print("polydataLandmarks")
+                print(polydataLandmarks)
+
+                Model_Result = slicer.vtkMRMLModelNode()
+                Model_Result.SetAndObservePolyData(polydataLandmarks)
+                Model_Result.SetName('Model_points')
+                modelDisplay = slicer.vtkMRMLModelDisplayNode()
+
+                # Represent the surface as a wireframe is the checkmark was selected by the user
+                modelDisplay.SetRepresentation(0)
+
+                modelDisplay.SetSliceIntersectionVisibility(True) # Show in slice view
+                modelDisplay.SetVisibility(True) # Show in 3D view
+                modelDisplay.SetName('Model_points')
+                modelDisplay.BackfaceCullingOff()
+                modelDisplay.SetColor(self.RedColor,self.GreenColor,self.BlueColor)
+                slicer.mrmlScene.AddNode(modelDisplay)
+                Model_Result.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+                slicer.mrmlScene.AddNode(Model_Result) 
+
+
+
+            # Variable to hold the shape parameters
+            modelParameters = vtk.vtkFloatArray()
+            modelParameters.SetNumberOfComponents(1)
+            modelParameters.SetNumberOfTuples(numTuples)
+
+            # Project the new landmarks onto the PCA model to find the best fitting paramters
+            self.pca_model.GetShapeParameters(polydataLandmarks, modelParameters, numTuples)
+
+            new_coeff = vtk_to_numpy(modelParameters)
+            print("New Model Coefficients: ")
+            print(new_coeff)
+
+            # Set the new model coefficients
+            self.FirstEV = new_coeff[0]
+            self.SecondEV = new_coeff[1]
+            self.ThirdEV = new_coeff[2]
+            self.FourthEV = new_coeff[3]
+            self.FifthEV = new_coeff[4]
+
+            self.FirstEVSlider.value  = new_coeff[0]
+            self.SecondEVSlider.value = new_coeff[1]
+            self.ThirdEVSlider.value  = new_coeff[2]
+            self.FourthEVSlider.value = new_coeff[3]
+            self.FifthEVSlider.value  = new_coeff[4]
+
+            # Update the rendering in 3D Slicer
+            self.onCompute()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     # TODO: need a way to access and parse command line arguments
